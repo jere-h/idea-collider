@@ -1,0 +1,13 @@
+{
+  "name": "collider",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Collider — a daily, swipeable creative-thinking workout (Tinder for Ideas). Mobile-first PWA, no build step.",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/logic.test.mjs",
+    "lint:content": "node tests/content.lint.mjs",
+    "check": "node tests/logic.test.mjs && node tests/content.lint.mjs",
+    "serve": "node -e \"const h=require('http'),f=require('fs'),p=require('path');h.createServer((q,s)=>{let u=q.url.split('?')[0];if(u==='/')u='/index.html';const fp=p.join(process.cwd(),u);f.readFile(fp,(e,d)=>{if(e){s.statusCode=404;return s.end('404')}const t={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'}[p.extname(fp)]||'text/plain';s.setHeader('Content-Type',t);s.end(d)})}).listen(8080,()=>console.log('http://localhost:8080'))\""
+  }
+}

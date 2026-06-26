@@ -1,0 +1,14 @@
+{
+  "name": "Collider — Tinder for Ideas",
+  "short_name": "Collider",
+  "description": "A daily swipe deck of surprising brand and industry mashups. Guess the link, tap to reveal the twist.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e0e12",
+  "theme_color": "#0e0e12",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
