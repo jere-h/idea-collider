@@ -1,6 +1,6 @@
 // Service worker — offline-first precache of the app shell (TRD §serviceWorker).
 // Cache name carries the app version; bump to invalidate.
-const CACHE = 'collider-v0.1.0';
+const CACHE = 'collider-v0.2.0';
 const ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const ASSETS = [
   './src/domains.js',
   './src/storage.js',
   './src/telemetry.js',
+  './src/provocation.js',
 ];
 
 self.addEventListener('install', (e) => {

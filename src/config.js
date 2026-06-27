@@ -2,4 +2,4 @@
 // somewhere with the serverless function (Vercel/Netlify). Left empty, the app is
 // fully functional and simply collects no telemetry (events queue locally).
 export const TELEMETRY_ENDPOINT = '';
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
