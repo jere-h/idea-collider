@@ -42,6 +42,12 @@ try {
   // COLD OPEN: a card is on screen immediately — no onboarding, no domain picker.
   await page.waitForSelector('.card');
   assert(!(await page.isVisible('.chip')), 'no onboarding chips — cold opens on a card');
+
+  // First open shows a one-time intro overlay atop the live deck — dismiss it.
+  await page.waitForSelector('.intro-start');
+  await page.click('.intro-start');
+  assert((await page.locator('.intro-scrim').count()) === 0, 'intro dismissed, deck is interactive');
+
   await counted(0);
   assert(await page.isVisible('.reveal-hint'), 'card starts face-down (guess first)');
 

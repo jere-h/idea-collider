@@ -278,6 +278,58 @@ function toast(msg) {
 }
 function celebrate() { toast('♥ saved'); }
 
+// ---------- first-open intro ----------
+// A ONE-TIME overlay shown over the already-rendered deck (we keep the cold-open:
+// the first frame is the real product, the modal is a caption over it). Shows only
+// while !state.onboarded; dismissal persists onboarded so it never returns.
+let introClosed = false;
+function maybeShowIntro() {
+  if (state.onboarded) return;
+  const scrim = document.createElement('div');
+  scrim.className = 'intro-scrim';
+  scrim.innerHTML = `
+    <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+      <div class="intro-motif"><span class="side">IKEA</span><span class="vs">×</span><span class="side">Gyms</span></div>
+      <h2 id="intro-title" class="intro-h">Collide two things. See what sparks.</h2>
+      <p class="intro-body">You guess what IKEA and a gym secretly share, then reveal the twist. Eight a day, about a minute — and some cards turn the idea back on your own work.</p>
+      <button class="primary intro-start">Start swiping</button>
+      <p class="ob-note">No signup. 8 cards, ~60 seconds.</p>
+    </div>`;
+  document.body.appendChild(scrim);
+  const app = root();
+  if (app) app.setAttribute('aria-hidden', 'true'); // hide the deck (and tabbar) from AT while open
+
+  const cardEl = scrim.querySelector('.intro-card');
+  const startBtn = scrim.querySelector('.intro-start');
+  startBtn.addEventListener('click', () => dismissIntro('button'));
+  scrim.addEventListener('click', (e) => { if (e.target === scrim) dismissIntro('scrim'); });
+  cardEl.addEventListener('click', (e) => e.stopPropagation()); // a tap inside the card never dismisses
+  // Capture keydown so Esc dismisses and arrow keys can't reach the deck's swipe handler
+  // (bindSwipe set document.onkeydown before this overlay opened).
+  const onKey = (e) => {
+    if (e.key === 'Escape') { dismissIntro('esc'); return; }
+    if (e.key.startsWith('Arrow')) { e.stopImmediatePropagation(); e.preventDefault(); }
+  };
+  scrim._onKey = onKey;
+  document.addEventListener('keydown', onKey, true);
+  startBtn.focus();
+  telemetry.track('intro_shown');
+}
+function dismissIntro(via) {
+  if (introClosed) return; // idempotent: button/scrim/esc all funnel here exactly once
+  introClosed = true;
+  const scrim = document.querySelector('.intro-scrim');
+  if (scrim) {
+    if (scrim._onKey) document.removeEventListener('keydown', scrim._onKey, true);
+    scrim.remove();
+  }
+  const app = root();
+  if (app) app.removeAttribute('aria-hidden');
+  state.onboarded = true;
+  save();
+  telemetry.track('intro_dismissed', { via });
+}
+
 // ---------- saved ----------
 function renderSaved() {
   const sparks = [...state.sparks].reverse();
@@ -474,3 +526,4 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 
 render();
+maybeShowIntro(); // one-time first-open overlay, atop the already-rendered deck
