@@ -5,6 +5,7 @@
 // Run: node tests/content.lint.mjs
 import { CARD_POOL } from '../src/cards.js';
 import { DOMAINS } from '../src/domains.js';
+import { GRAMMARS } from '../src/provocation.js';
 
 // A good reveal names a mechanism in one tight sentence. These patterns smell
 // like the failure modes user testing flagged: smug "lesson" morals and lazy
@@ -16,7 +17,15 @@ const SMELLS = [
 ];
 const REVEAL_MIN_WORDS = 8;
 const REVEAL_MAX_WORDS = 30;
+// "The Catch" provocation budget (docs/trd-the-catch.md §7).
+const QUESTION_MIN_WORDS = 4;
+const QUESTION_MAX_WORDS = 24;
+const GRAMMAR_SET = new Set(GRAMMARS);
+const VERB_RE = /^[a-z][a-z-]*[a-z]$/;
+const SECOND_PERSON_RE = /\byou(r|rself)?\b/i;
 const errors = [];
+let provokedCount = 0;
+const grammarsSeen = new Set();
 const domainSet = new Set(DOMAINS);
 
 for (const c of CARD_POOL.cards) {
@@ -42,6 +51,50 @@ for (const c of CARD_POOL.cards) {
       if (pat.test(c.reveal)) errors.push(`${where}: reveal hits a "lesson"/filler smell ${pat}`);
     }
   }
+
+  // ----- "The Catch" provocation (optional, but all-or-nothing) -----
+  const hasAny = c.question !== undefined || c.verb !== undefined || c.grammar !== undefined;
+  if (hasAny) {
+    if (c.question === undefined || c.verb === undefined || c.grammar === undefined) {
+      errors.push(`${where}: provocation must define ALL of question/verb/grammar (or none)`);
+    }
+    // grammar: one of the allowed shapes; 'accusation' was cut in user testing.
+    if (c.grammar === 'accusation') {
+      errors.push(`${where}: grammar "accusation" is banned (read as scolding / ESL-hostile)`);
+    } else if (!GRAMMAR_SET.has(c.grammar)) {
+      errors.push(`${where}: unknown grammar "${c.grammar}" (allowed: ${GRAMMARS.join(', ')})`);
+    }
+    // verb: lowercase kebab tag, <= 4 hyphen-separated parts.
+    if (typeof c.verb !== 'string' || !VERB_RE.test(c.verb)) {
+      errors.push(`${where}: verb "${c.verb}" must be a lowercase kebab tag`);
+    } else if (c.verb.split('-').length > 4) {
+      errors.push(`${where}: verb "${c.verb}" is too long (max 4 words)`);
+    }
+    // question: a single second-person interrogative.
+    if (typeof c.question !== 'string') {
+      errors.push(`${where}: question must be a string`);
+    } else {
+      const q = c.question.trim();
+      const qWords = q.split(/\s+/).length;
+      if (qWords < QUESTION_MIN_WORDS) errors.push(`${where}: question too short (${qWords} words)`);
+      if (qWords > QUESTION_MAX_WORDS) errors.push(`${where}: question too long (${qWords} > ${QUESTION_MAX_WORDS} words)`);
+      const qMarks = (q.match(/\?/g) || []).length;
+      if (qMarks !== 1 || !q.endsWith('?')) errors.push(`${where}: question must be ONE interrogative ending in a single "?"`);
+      if (/[.!]/.test(q)) errors.push(`${where}: question must be a single sentence (no . or !)`);
+      if (!SECOND_PERSON_RE.test(q)) errors.push(`${where}: question must be second-person (use "you"/"your")`);
+    }
+    if (GRAMMAR_SET.has(c.grammar)) grammarsSeen.add(c.grammar);
+    provokedCount++;
+  }
+}
+
+// Pool-level provocation variety (guards horoscope decay; PRD targets ~half of the pool).
+const MIN_PROVOKED = 8;
+if (provokedCount < MIN_PROVOKED) {
+  errors.push(`pool: only ${provokedCount} provoked cards (need >= ${MIN_PROVOKED})`);
+}
+for (const g of GRAMMARS) {
+  if (!grammarsSeen.has(g)) errors.push(`pool: grammar "${g}" is unused (all shapes must appear)`);
 }
 
 const ids = CARD_POOL.cards.map((c) => c.id);

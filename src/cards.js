@@ -23,6 +23,17 @@
 //             "Both X..." makes the rug-pull predictable (a Round-2 testing note).
 //
 // The two `domain`s of every card MUST differ (content lint enforces it).
+//
+// "The Catch" (docs/trd-the-catch.md) — a SUBSET of cards also carry a provocation,
+// all-or-nothing (content lint enforces the trio):
+//   verb     — short kebab mechanism tag (e.g. `credit-shifting`): the clustering key
+//              for the soft "You keep catching X" mirror. Display verbatim.
+//   grammar  — the question's shape: 'point' | 'inversion' | 'dare'. ('accusation' was
+//              cut in user testing — scolding/ESL-hostile — and is lint-banned.)
+//   question — ONE hand-written, second-person open question pointed at the user's own
+//              life. A single interrogative (exactly one `?`), so it never trips the
+//              one-sentence `reveal` lint. Provokes the bridge in the user's head; the
+//              app does NOT collect an answer. Authored on back-of-deck cards only.
 
 export const CARD_POOL = {
   version: 'brands-1',
@@ -50,18 +61,27 @@ export const CARD_POOL = {
       a: { title: 'Costco', domain: 'Warehouse retail' },
       b: { title: 'SaaS pricing', domain: 'Software' },
       reveal: 'Lock the real discount behind an annual fee and members keep over-buying just to prove the membership paid for itself.',
+      verb: 'sunk-cost-loyalty',
+      grammar: 'point',
+      question: 'Where are you over-buying just to prove a subscription you already pay for was worth it?',
     },
     {
       id: 'ikea-gyms',
       a: { title: 'IKEA', domain: 'Furniture' },
       b: { title: 'Gyms', domain: 'Fitness' },
       reveal: 'You do the hard part yourself and they take the credit, so when it falls apart you blame yourself, not the flat-pack.',
+      verb: 'credit-shifting',
+      grammar: 'inversion',
+      question: 'Who is taking the credit for the hard part you actually did this week?',
     },
     {
       id: 'netflix-buffets',
       a: { title: 'Netflix', domain: 'Streaming' },
       b: { title: 'All-you-can-eat buffets', domain: 'Hospitality' },
       reveal: 'When the next thing is always already paid for, you stop valuing any of it — the buffet and the watchlist train the same shrug.',
+      verb: 'abundance-fatigue',
+      grammar: 'point',
+      question: 'What have you stopped valuing simply because you already paid for unlimited access to it?',
     },
     {
       id: 'mcdonalds-bitcoin',
@@ -92,18 +112,27 @@ export const CARD_POOL = {
       a: { title: 'Amazon', domain: 'E-commerce' },
       b: { title: 'A public library', domain: 'Government' },
       reveal: 'Quietly run the boring logistics nobody else wanted, and one day owning the shelves becomes the entire moat.',
+      verb: 'infrastructure-moat',
+      grammar: 'point',
+      question: 'What boring, unglamorous job are you doing that could quietly become your whole moat?',
     },
     {
       id: 'f1-drivethru',
       a: { title: 'Formula 1', domain: 'Motorsport' },
       b: { title: 'A drive-thru', domain: 'Fast food' },
       reveal: 'One hidden number rules both pit crews and drive-thru windows: how few seconds a customer can spend sitting still.',
+      verb: 'speed-obsession',
+      grammar: 'dare',
+      question: 'Can you name the one wait your customers would pay you to delete?',
     },
     {
       id: 'starbucks-banks',
       a: { title: 'Starbucks', domain: 'Coffee' },
       b: { title: 'Banks', domain: 'Banking' },
       reveal: 'Starbucks sits on billions in prepaid gift-card cash — it is a bank that happens to sell coffee.',
+      verb: 'customer-float',
+      grammar: 'inversion',
+      question: 'Whose money could you be holding before you ever deliver them anything?',
     },
     {
       id: 'airbnb-tinder',
@@ -116,6 +145,9 @@ export const CARD_POOL = {
       a: { title: 'A payday lender', domain: 'Banking' },
       b: { title: 'Energy drinks', domain: 'Beverages' },
       reveal: 'Sell an expensive jolt of "right now" to the people who can least afford the crash that follows it.',
+      verb: 'instant-relief-tax',
+      grammar: 'point',
+      question: 'Who are you selling instant relief to that can least afford the crash afterward?',
     },
     {
       id: 'postoffice-email',
@@ -128,12 +160,18 @@ export const CARD_POOL = {
       a: { title: 'A theme-park fast pass', domain: 'Theme parks' },
       b: { title: 'Express checkout', domain: 'E-commerce' },
       reveal: 'You will pay extra not for anything better, just to skip the suffering they deliberately built into the free version.',
+      verb: 'manufactured-friction',
+      grammar: 'point',
+      question: 'Where in your product are people paying to escape pain you deliberately built in?',
     },
     {
       id: 'redbull-filmstudio',
       a: { title: 'Red Bull', domain: 'Beverages' },
       b: { title: 'A film studio', domain: 'Streaming' },
       reveal: 'Red Bull makes more races, films, and magazines than drinks — the can is really just an ad for the content.',
+      verb: 'content-as-marketing',
+      grammar: 'inversion',
+      question: 'What if your product is really just an ad for something else you should be making?',
     },
     {
       id: 'wedding-enterprise',
@@ -146,6 +184,9 @@ export const CARD_POOL = {
       a: { title: "Trader Joe's", domain: 'Grocery' },
       b: { title: 'An indie game studio', domain: 'Toys & games' },
       reveal: 'Refusing to carry everything is the whole strategy — the deliberate scarcity is exactly what turns customers into evangelists.',
+      verb: 'deliberate-scarcity',
+      grammar: 'dare',
+      question: 'What could you refuse to offer that would make your fans love you more?',
     },
     {
       id: 'gyms-streaming',
@@ -164,12 +205,18 @@ export const CARD_POOL = {
       a: { title: 'Disney', domain: 'Theme parks' },
       b: { title: 'Apple', domain: 'Software' },
       reveal: 'Build a wall so beautiful that people thank you for keeping them inside it.',
+      verb: 'walled-garden',
+      grammar: 'inversion',
+      question: 'What wall could you build so good that customers thank you for being kept inside?',
     },
     {
       id: 'subscriptionbox-clawmachine',
       a: { title: 'A subscription box', domain: 'E-commerce' },
       b: { title: 'A claw machine', domain: 'Toys & games' },
       reveal: 'You are paying for the gamble, not the prize — the fun is the reveal and the stuff inside is almost beside the point.',
+      verb: 'gamble-over-prize',
+      grammar: 'dare',
+      question: 'Could you sell the thrill of the reveal instead of the thing inside your box?',
     },
   ],
 };

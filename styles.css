@@ -84,6 +84,15 @@ button { font: inherit; cursor: pointer; border: none; }
   padding: 4px 10px; border-radius: 999px; }
 .take-input { width: 100%; background: var(--surface); color: var(--text);
   border: 1px solid var(--line); border-radius: 12px; padding: 12px; font: inherit; }
+
+/* ---------- The Catch: provocation question + soft mirror ---------- */
+.catch-question { font-size: 17px; line-height: 1.4; font-weight: 700;
+  color: var(--accent-2); margin: 0 0 16px; padding-top: 14px;
+  border-top: 1px solid var(--line); }
+.catch-mirror { margin: 0 0 18px; padding: 12px 14px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; color: var(--muted); }
+.catch-mirror b { color: var(--accent-2); }
+
 .card.hint-right { border-color: var(--right); }
 .card.hint-left { border-color: var(--left); }
 
@@ -146,7 +155,11 @@ button { font: inherit; cursor: pointer; border: none; }
 .spark-src { color: var(--accent); font-size: 14px; font-weight: 700; }
 .spark-reveal { color: var(--text); margin: 6px 0; }
 .spark-bridge { margin: 6px 0; color: var(--accent-2); }
+.spark-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 4px; }
 .spark-meta { color: var(--muted); font-size: 12px; }
+.share-btn { background: var(--surface-2); color: var(--accent); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; }
 
 /* ---------- progress ---------- */
 .stats { display: flex; gap: 10px; margin: 8px 0 22px; }
