@@ -6,6 +6,10 @@ import { applySpark, currentStreak, initialStreak } from '../src/streak.js';
 import { domainsBridged, DOMAIN_COUNT } from '../src/domains.js';
 import { migrate, defaultState, SCHEMA_VERSION, createStorage, memoryBackend } from '../src/storage.js';
 import { createTelemetry } from '../src/telemetry.js';
+import {
+  hasProvocation, shouldProvoke, clusterVerb,
+  FRONT_FREE, COLD_LIMIT, CLUSTER_MIN,
+} from '../src/provocation.js';
 
 let passed = 0;
 const tests = [];
@@ -203,6 +207,53 @@ test('app save() does not clobber the telemetry outbox (separate keys)', () => {
   // the outbox event must survive the app save
   assert.equal(storage.getOutbox().length, 1);
   assert.equal(storage.getOutbox()[0].eventId, 'e1');
+});
+
+// ---------- provocation ("The Catch") ----------
+const provCard = { question: 'Where in your week does this bite you?', verb: 'credit-shifting', grammar: 'point' };
+const plainCard = { reveal: 'A closed mechanism, no question.' };
+
+test('hasProvocation detects a question field', () => {
+  assert.equal(hasProvocation(provCard), true);
+  assert.equal(hasProvocation(plainCard), false);
+  assert.equal(hasProvocation({ question: '   ' }), false); // blank doesn't count
+  assert.equal(hasProvocation(null), false);
+});
+
+test('shouldProvoke keeps the front of the deck pure', () => {
+  // done < FRONT_FREE → never provoke, even on a provocation card
+  for (let done = 0; done < FRONT_FREE; done++) {
+    assert.equal(shouldProvoke({ card: provCard, done, coldStreak: 0 }), false);
+  }
+  // at/after FRONT_FREE → provoke
+  assert.equal(shouldProvoke({ card: provCard, done: FRONT_FREE, coldStreak: 0 }), true);
+  assert.equal(shouldProvoke({ card: provCard, done: FRONT_FREE + 3, coldStreak: 0 }), true);
+});
+
+test('shouldProvoke never fires on a card with no question', () => {
+  assert.equal(shouldProvoke({ card: plainCard, done: 99, coldStreak: 0 }), false);
+});
+
+test('shouldProvoke backs off once coldStreak hits COLD_LIMIT', () => {
+  assert.equal(shouldProvoke({ card: provCard, done: 5, coldStreak: COLD_LIMIT - 1 }), true);
+  assert.equal(shouldProvoke({ card: provCard, done: 5, coldStreak: COLD_LIMIT }), false);
+  assert.equal(shouldProvoke({ card: provCard, done: 5, coldStreak: COLD_LIMIT + 9 }), false);
+});
+
+test('clusterVerb returns null below the threshold and the dominant verb at/above it', () => {
+  assert.equal(clusterVerb([]), null);
+  const below = Array.from({ length: CLUSTER_MIN - 1 }, () => ({ verb: 'credit-shifting' }));
+  assert.equal(clusterVerb(below), null);
+  const at = Array.from({ length: CLUSTER_MIN }, () => ({ verb: 'credit-shifting' }));
+  assert.equal(clusterVerb(at), 'credit-shifting');
+});
+
+test('clusterVerb ignores sparks without a verb and picks the most frequent', () => {
+  const sparks = [
+    { verb: 'walled-garden' }, { verb: 'walled-garden' }, { verb: 'walled-garden' },
+    { verb: 'customer-float' }, { bridge: 'no verb here' }, {},
+  ];
+  assert.equal(clusterVerb(sparks), 'walled-garden');
 });
 
 // ---------- run ----------

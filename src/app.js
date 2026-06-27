@@ -10,6 +10,7 @@ import { CARD_POOL } from './cards.js';
 import { deal, DECK_SIZE } from './deckEngine.js';
 import { applySpark, currentStreak } from './streak.js';
 import { domainsBridged, DOMAINS, DOMAIN_COUNT } from './domains.js';
+import { shouldProvoke, clusterVerb } from './provocation.js';
 import { createStorage } from './storage.js';
 import { createTelemetry } from './telemetry.js';
 import { TELEMETRY_ENDPOINT, APP_VERSION } from './config.js';
@@ -34,6 +35,11 @@ const telemetry = createTelemetry({
 let currentScreen = 'deck';
 const revealedIds = new Set(); // transient: which top card has been revealed
 let suppressNextCardClick = false; // guard so a drag doesn't also trigger reveal
+
+// "The Catch" session-transient state — never persisted (TRD §3). A reload re-derives
+// it from the persisted deck and a reset coldStreak, which is acceptable for v1.
+let coldStreak = 0;       // provocations shown-then-swiped cold in a row, this session
+let provokedTopId = null; // top card's id IFF its question is currently on screen
 
 const cardById = new Map(CARD_POOL.cards.map((c) => [c.id, c]));
 
@@ -93,6 +99,14 @@ function reveal(entryId) {
   if (revealedIds.has(entryId)) return;
   revealedIds.add(entryId);
   telemetry.track('engage_open', { cardId: entryId }); // "reveal opened"
+  // A provocation becomes visible exactly here (the question only renders when revealed).
+  // Emitting from this once-per-card action keeps render side-effect-free and needs no
+  // idempotency set. Re-renders (tab return) re-show the question but never re-run reveal().
+  const top = topPendingCard();
+  if (top && top.entry.id === entryId
+      && shouldProvoke({ card: top.card, done: deckProgress().done, coldStreak })) {
+    telemetry.track('provocation_shown', { cardId: entryId, grammar: top.card.grammar });
+  }
   renderDeck();
 }
 
@@ -101,6 +115,8 @@ function skipCard(entryId) {
   const entry = state.dailyDeck.cards.find((c) => c.id === entryId);
   if (!entry || entry.status !== 'pending') return;
   entry.status = 'swiped_left';
+  // Swiping past a provocation that WAS shown is a "cold" signal — back off after a few.
+  if (entryId === provokedTopId) coldStreak += 1;
   save();
   telemetry.track('swipe_left', { cardId: entryId });
   afterCardResolved();
@@ -114,16 +130,25 @@ function saveCard(entryId, take) {
   const card = cardById.get(entryId);
   entry.status = 'saved';
   if (!state.engaged.includes(entryId)) state.engaged.push(entryId);
-  state.sparks.push({
+  // A "catch" = saving a card whose provocation was on screen. Record the verb as a SOFT
+  // clustering signal (PRD §6) and reset coldStreak — engagement feeds more provocation.
+  const caught = entryId === provokedTopId;
+  const spark = {
     cardId: entryId,
     bridge: (take || '').trim(),
     domains: [card.a.domain, card.b.domain],
     savedAt: new Date().toISOString(),
-  });
+  };
+  if (caught && card.verb) spark.verb = card.verb;
+  state.sparks.push(spark);
   state.streak = applySpark(state.streak, today);
   save();
   telemetry.track('swipe_right', { cardId: entryId });
   telemetry.track('bridge_saved', { cardId: entryId });
+  if (caught) {
+    coldStreak = 0;
+    telemetry.track('catch', { cardId: entryId, verb: card.verb });
+  }
   celebrate();
   afterCardResolved();
 }
@@ -161,6 +186,7 @@ function renderDeck() {
 
   let body;
   if (!top) {
+    provokedTopId = null;
     const saved = state.sparks.filter((s) => isToday(s.savedAt)).length;
     body = `
       <div class="done">
@@ -173,10 +199,15 @@ function renderDeck() {
       </div>`;
   } else {
     const revealed = revealedIds.has(top.entry.id);
+    // A provocation is "live" only when the top card is revealed AND shouldProvoke says so.
+    // Recomputed on every render (this fn re-fires on reveal and tab return), so
+    // provokedTopId always reflects the card currently on screen — never stale.
+    const provoke = revealed && shouldProvoke({ card: top.card, done, coldStreak });
+    provokedTopId = provoke ? top.entry.id : null;
     body = `
       <div class="deck-head"><div class="deck-count">${done}/${total}</div></div>
       <div class="deck" id="deck">
-        ${renderCard(top.card, top.entry, revealed)}
+        ${renderCard(top.card, top.entry, revealed, provoke)}
       </div>
       <div class="swipe-actions">
         <button class="sw left" id="btn-left" aria-label="Skip">✕</button>
@@ -184,7 +215,7 @@ function renderDeck() {
         <button class="sw right" id="btn-right" aria-label="Save">♥</button>
       </div>
       <p class="hint">${revealed
-        ? '✕ skip  ·  ♥ save it'
+        ? (provoke ? '♥ if it caught you  ·  ✕ swipe on' : '✕ skip  ·  ♥ save it')
         : 'Guess the link — then tap the card to reveal'}</p>`;
   }
 
@@ -210,7 +241,11 @@ function renderDeck() {
   }
 }
 
-function renderCard(card, entry, revealed) {
+function renderCard(card, entry, revealed, provoke) {
+  // On a provoked card the reveal still names the move, then resolves into an open,
+  // second-person question (answerable by silence). The take-input stays optional but
+  // is re-pointed so a user who DID have a thought can keep it in one tap.
+  const placeholder = provoke ? 'Caught one? Jot where (optional)' : 'Add your take (optional)';
   return `
     <article class="card ${revealed ? 'is-revealed' : ''}" id="card-${entry.id}" data-id="${entry.id}">
       <div class="collide">
@@ -222,24 +257,26 @@ function renderCard(card, entry, revealed) {
         <div class="reveal-body">
           <div class="spark-mark">⚡</div>
           <p class="reveal-line">${esc(card.reveal)}</p>
+          ${provoke ? `<p class="catch-question">${esc(card.question)}</p>` : ''}
           <div class="cats">
             <span class="cat">${esc(card.a.domain)}</span>
             <span class="cat">${esc(card.b.domain)}</span>
           </div>
           <input id="take" class="take-input" maxlength="140"
-            placeholder="Add your take (optional)" />
+            placeholder="${esc(placeholder)}" />
         </div>` : `
         <div class="reveal-hint">tap to reveal the connection</div>`}
     </article>`;
 }
 
-function celebrate() {
+function toast(msg) {
   const c = document.createElement('div');
   c.className = 'celebrate';
-  c.textContent = '♥ saved';
+  c.textContent = msg;
   document.body.appendChild(c);
   setTimeout(() => c.remove(), 800);
 }
+function celebrate() { toast('♥ saved'); }
 
 // ---------- saved ----------
 function renderSaved() {
@@ -261,6 +298,9 @@ function renderSaved() {
       row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
   });
+  root().querySelectorAll('.share-btn[data-share]').forEach((el) => {
+    el.addEventListener('click', () => shareCard(el.dataset.share));
+  });
 }
 function sparkRow(s) {
   const card = cardById.get(s.cardId);
@@ -271,14 +311,42 @@ function sparkRow(s) {
       <div class="spark-src">${esc(title)}</div>
       ${reveal ? `<div class="spark-reveal">${esc(reveal)}</div>` : ''}
       ${s.bridge ? `<div class="spark-bridge">“${esc(s.bridge)}”</div>` : ''}
-      <div class="spark-meta">${esc((s.domains || []).join(' · '))} · ${esc(s.savedAt.slice(0, 10))}</div>
+      <div class="spark-foot">
+        <span class="spark-meta">${esc((s.domains || []).join(' · '))} · ${esc(s.savedAt.slice(0, 10))}</span>
+        <button class="share-btn" data-share="${esc(s.cardId)}">Share</button>
+      </div>
     </div>`;
+}
+
+// Take a collision OUT of the app — the artifact every idea-seeking tester wanted, and the
+// first organic growth loop. Share text is built from RAW card strings (esc() is for
+// innerHTML only; HTML entities must not leak into a share sheet / clipboard).
+async function shareCard(cardId) {
+  const card = cardById.get(cardId);
+  if (!card) return;
+  let text = `${card.a.title} × ${card.b.title} — ${card.reveal}`;
+  if (card.question) text += `\n\n${card.question}`;
+  text += '\n\nvia Collider';
+  try {
+    if (navigator.share) {
+      await navigator.share({ text });
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      toast('Copied');
+    } else {
+      return; // no share surface available — progressive enhancement, never throws
+    }
+    telemetry.track('share', { cardId });
+  } catch (_) { /* user aborted the share sheet / clipboard denied — non-fatal */ }
 }
 
 // ---------- you ----------
 function renderYou() {
   const bridged = domainsBridged(state.sparks);
   const streak = currentStreak(state.streak, today);
+  // Soft mirror: the user's problem space inferred from a binary they already tap. Only
+  // shown once catches concentrate (>= CLUSTER_MIN) — an observation, never a verdict.
+  const caughtVerb = clusterVerb(state.sparks);
   const body = `
     <h2 class="screen-title">You</h2>
     <div class="stats">
@@ -286,6 +354,7 @@ function renderYou() {
       <div class="stat"><div class="num">${bridged}<span class="of">/${DOMAIN_COUNT}</span></div><div class="lbl">industries bridged</div></div>
       <div class="stat"><div class="num">🔥 ${streak}</div><div class="lbl">day streak</div></div>
     </div>
+    ${caughtVerb ? `<p class="catch-mirror">You keep catching <b>${esc(caughtVerb)}</b>.</p>` : ''}
     <div class="range">
       <h3>Industries you've bridged</h3>
       <div class="dom-grid">
@@ -346,6 +415,11 @@ function bindSwipe(entryId) {
 
   // keyboard
   document.onkeydown = (e) => {
+    // Don't hijack arrow keys while the user is editing their catch-note in #take —
+    // otherwise typing/cursoring swipes the card away (a latent pre-existing bug that
+    // "The Catch" makes likely by inviting typing in that field).
+    const ae = document.activeElement;
+    if (ae && ae.id === 'take') return;
     if (e.key === 'ArrowLeft') animateOut('left', entryId);
     if (e.key === 'ArrowRight') animateOut('right', entryId);
   };
