@@ -10,7 +10,7 @@ import { CARD_POOL } from './cards.js';
 import { deal, DECK_SIZE } from './deckEngine.js';
 import { applySpark, currentStreak } from './streak.js';
 import { domainsBridged, DOMAINS, DOMAIN_COUNT } from './domains.js';
-import { shouldProvoke, clusterVerb } from './provocation.js';
+import { clusterVerb } from './provocation.js';
 import { createStorage } from './storage.js';
 import { createTelemetry } from './telemetry.js';
 import { TELEMETRY_ENDPOINT, APP_VERSION } from './config.js';
@@ -35,11 +35,6 @@ const telemetry = createTelemetry({
 let currentScreen = 'deck';
 const revealedIds = new Set(); // transient: which top card has been revealed
 let suppressNextCardClick = false; // guard so a drag doesn't also trigger reveal
-
-// "The Catch" session-transient state — never persisted (TRD §3). A reload re-derives
-// it from the persisted deck and a reset coldStreak, which is acceptable for v1.
-let coldStreak = 0;       // provocations shown-then-swiped cold in a row, this session
-let provokedTopId = null; // top card's id IFF its question is currently on screen
 
 const cardById = new Map(CARD_POOL.cards.map((c) => [c.id, c]));
 
@@ -98,15 +93,7 @@ function viewTop() {
 function reveal(entryId) {
   if (revealedIds.has(entryId)) return;
   revealedIds.add(entryId);
-  telemetry.track('engage_open', { cardId: entryId }); // "reveal opened"
-  // A provocation becomes visible exactly here (the question only renders when revealed).
-  // Emitting from this once-per-card action keeps render side-effect-free and needs no
-  // idempotency set. Re-renders (tab return) re-show the question but never re-run reveal().
-  const top = topPendingCard();
-  if (top && top.entry.id === entryId
-      && shouldProvoke({ card: top.card, done: deckProgress().done, coldStreak })) {
-    telemetry.track('provocation_shown', { cardId: entryId, grammar: top.card.grammar });
-  }
+  telemetry.track('engage_open', { cardId: entryId }); // "reveal opened" — reveal + 2 questions show
   renderDeck();
 }
 
@@ -115,8 +102,6 @@ function skipCard(entryId) {
   const entry = state.dailyDeck.cards.find((c) => c.id === entryId);
   if (!entry || entry.status !== 'pending') return;
   entry.status = 'swiped_left';
-  // Swiping past a provocation that WAS shown is a "cold" signal — back off after a few.
-  if (entryId === provokedTopId) coldStreak += 1;
   save();
   telemetry.track('swipe_left', { cardId: entryId });
   afterCardResolved();
@@ -130,25 +115,22 @@ function saveCard(entryId, take) {
   const card = cardById.get(entryId);
   entry.status = 'saved';
   if (!state.engaged.includes(entryId)) state.engaged.push(entryId);
-  // A "catch" = saving a card whose provocation was on screen. Record the verb as a SOFT
-  // clustering signal (PRD §6) and reset coldStreak — engagement feeds more provocation.
-  const caught = entryId === provokedTopId;
+  // A "catch" = keeping a card that carries a recurring-mechanism `verb`. Record the verb as
+  // a SOFT clustering signal (PRD §6) powering the "You keep catching X" mirror on the You tab.
+  const caught = !!card.verb;
   const spark = {
     cardId: entryId,
     bridge: (take || '').trim(),
     domains: [card.a.domain, card.b.domain],
     savedAt: new Date().toISOString(),
   };
-  if (caught && card.verb) spark.verb = card.verb;
+  if (caught) spark.verb = card.verb;
   state.sparks.push(spark);
   state.streak = applySpark(state.streak, today);
   save();
   telemetry.track('swipe_right', { cardId: entryId });
   telemetry.track('bridge_saved', { cardId: entryId });
-  if (caught) {
-    coldStreak = 0;
-    telemetry.track('catch', { cardId: entryId, verb: card.verb });
-  }
+  if (caught) telemetry.track('catch', { cardId: entryId, verb: card.verb });
   celebrate();
   afterCardResolved();
 }
@@ -186,7 +168,6 @@ function renderDeck() {
 
   let body;
   if (!top) {
-    provokedTopId = null;
     const saved = state.sparks.filter((s) => isToday(s.savedAt)).length;
     body = `
       <div class="done">
@@ -199,15 +180,10 @@ function renderDeck() {
       </div>`;
   } else {
     const revealed = revealedIds.has(top.entry.id);
-    // A provocation is "live" only when the top card is revealed AND shouldProvoke says so.
-    // Recomputed on every render (this fn re-fires on reveal and tab return), so
-    // provokedTopId always reflects the card currently on screen — never stale.
-    const provoke = revealed && shouldProvoke({ card: top.card, done, coldStreak });
-    provokedTopId = provoke ? top.entry.id : null;
     body = `
       <div class="deck-head"><div class="deck-count">${done}/${total}</div></div>
       <div class="deck" id="deck">
-        ${renderCard(top.card, top.entry, revealed, provoke)}
+        ${renderCard(top.card, top.entry, revealed)}
       </div>
       <div class="swipe-actions">
         <button class="sw left" id="btn-left" aria-label="Skip">✕</button>
@@ -215,7 +191,7 @@ function renderDeck() {
         <button class="sw right" id="btn-right" aria-label="Save">♥</button>
       </div>
       <p class="hint">${revealed
-        ? (provoke ? '♥ if it caught you  ·  ✕ swipe on' : '✕ skip  ·  ♥ save it')
+        ? '✕ skip  ·  ♥ save it'
         : 'Guess the link — then tap the card to reveal'}</p>`;
   }
 
@@ -241,11 +217,11 @@ function renderDeck() {
   }
 }
 
-function renderCard(card, entry, revealed, provoke) {
-  // On a provoked card the reveal still names the move, then resolves into an open,
-  // second-person question (answerable by silence). The take-input stays optional but
-  // is re-pointed so a user who DID have a thought can keep it in one tap.
-  const placeholder = provoke ? 'Caught one? Jot where (optional)' : 'Add your take (optional)';
+function renderCard(card, entry, revealed) {
+  // On reveal the card names the shared mechanism in plain language, then lands two
+  // always-shown, second-person questions that turn the idea back on the reader's own life
+  // and work — the spark we're after. The take-input stays optional, never a gate.
+  const questions = Array.isArray(card.questions) ? card.questions : [];
   return `
     <article class="card ${revealed ? 'is-revealed' : ''}" id="card-${entry.id}" data-id="${entry.id}">
       <div class="collide">
@@ -257,13 +233,16 @@ function renderCard(card, entry, revealed, provoke) {
         <div class="reveal-body">
           <div class="spark-mark">⚡</div>
           <p class="reveal-line">${esc(card.reveal)}</p>
-          ${provoke ? `<p class="catch-question">${esc(card.question)}</p>` : ''}
+          ${questions.length ? `
+          <ul class="spark-questions">
+            ${questions.map((q) => `<li class="spark-question">${esc(q)}</li>`).join('')}
+          </ul>` : ''}
           <div class="cats">
             <span class="cat">${esc(card.a.domain)}</span>
             <span class="cat">${esc(card.b.domain)}</span>
           </div>
           <input id="take" class="take-input" maxlength="140"
-            placeholder="${esc(placeholder)}" />
+            placeholder="Add your take (optional)" />
         </div>` : `
         <div class="reveal-hint">tap to reveal the connection</div>`}
     </article>`;
@@ -291,7 +270,7 @@ function maybeShowIntro() {
     <div class="intro-card" role="dialog" aria-modal="true" aria-labelledby="intro-title">
       <div class="intro-motif"><span class="side">IKEA</span><span class="vs">×</span><span class="side">Gyms</span></div>
       <h2 id="intro-title" class="intro-h">Collide two things. See what sparks.</h2>
-      <p class="intro-body">You guess what IKEA and a gym secretly share, then reveal the twist. Eight a day, about a minute — and some cards turn the idea back on your own work.</p>
+      <p class="intro-body">You guess what IKEA and a gym secretly share, then reveal the twist — plus two questions that turn the idea back on your own life and work. Eight a day, about a minute.</p>
       <button class="primary intro-start">Start swiping</button>
       <p class="ob-note">No signup. 8 cards, ~60 seconds.</p>
     </div>`;
@@ -377,7 +356,7 @@ async function shareCard(cardId) {
   const card = cardById.get(cardId);
   if (!card) return;
   let text = `${card.a.title} × ${card.b.title} — ${card.reveal}`;
-  if (card.question) text += `\n\n${card.question}`;
+  if (Array.isArray(card.questions)) text += '\n\n' + card.questions.join('\n');
   text += '\n\nvia Collider';
   try {
     if (navigator.share) {

@@ -1,13 +1,13 @@
 // Content lint for the card pool (TRD §Test strategy·content/rubric check).
-// v2: cards are brand/industry collisions with a single `reveal` payoff line —
-// no glosses, no Socratic questions. Fails CI if a card violates the schema, the
-// two-differing-categories rule, or the reveal-quality budget.
+// Cards are brand/industry collisions with a single plain-language `reveal` payoff line
+// PLUS exactly two always-shown, second-person application questions. Fails CI if a card
+// violates the schema, the two-differing-categories rule, the reveal-quality budget, or the
+// questions budget.
 // Run: node tests/content.lint.mjs
 import { CARD_POOL } from '../src/cards.js';
 import { DOMAINS } from '../src/domains.js';
-import { GRAMMARS } from '../src/provocation.js';
 
-// A good reveal names a mechanism in one tight sentence. These patterns smell
+// A good reveal names a mechanism in one tight, plain sentence. These patterns smell
 // like the failure modes user testing flagged: smug "lesson" morals and lazy
 // "both are X" restatements of the obvious.
 const SMELLS = [
@@ -17,15 +17,14 @@ const SMELLS = [
 ];
 const REVEAL_MIN_WORDS = 8;
 const REVEAL_MAX_WORDS = 30;
-// "The Catch" provocation budget (docs/trd-the-catch.md §7).
+// Application-question budget (two per card).
 const QUESTION_MIN_WORDS = 4;
 const QUESTION_MAX_WORDS = 24;
-const GRAMMAR_SET = new Set(GRAMMARS);
+const QUESTIONS_PER_CARD = 2;
+// `verb` (optional, on a subset) — the soft "You keep catching X" clustering tag.
 const VERB_RE = /^[a-z][a-z-]*[a-z]$/;
 const SECOND_PERSON_RE = /\byou(r|rself)?\b/i;
 const errors = [];
-let provokedCount = 0;
-const grammarsSeen = new Set();
 const domainSet = new Set(DOMAINS);
 
 for (const c of CARD_POOL.cards) {
@@ -52,49 +51,42 @@ for (const c of CARD_POOL.cards) {
     }
   }
 
-  // ----- "The Catch" provocation (optional, but all-or-nothing) -----
-  const hasAny = c.question !== undefined || c.verb !== undefined || c.grammar !== undefined;
-  if (hasAny) {
-    if (c.question === undefined || c.verb === undefined || c.grammar === undefined) {
-      errors.push(`${where}: provocation must define ALL of question/verb/grammar (or none)`);
+  // ----- application questions (exactly two, on EVERY card) -----
+  if (!Array.isArray(c.questions)) {
+    errors.push(`${where}: missing questions array`);
+  } else {
+    if (c.questions.length !== QUESTIONS_PER_CARD) {
+      errors.push(`${where}: must have exactly ${QUESTIONS_PER_CARD} questions (found ${c.questions.length})`);
     }
-    // grammar: one of the allowed shapes; 'accusation' was cut in user testing.
-    if (c.grammar === 'accusation') {
-      errors.push(`${where}: grammar "accusation" is banned (read as scolding / ESL-hostile)`);
-    } else if (!GRAMMAR_SET.has(c.grammar)) {
-      errors.push(`${where}: unknown grammar "${c.grammar}" (allowed: ${GRAMMARS.join(', ')})`);
+    c.questions.forEach((q, i) => {
+      const at = `${where}.questions[${i}]`;
+      if (typeof q !== 'string') { errors.push(`${at}: must be a string`); return; }
+      const qt = q.trim();
+      const qWords = qt.split(/\s+/).length;
+      if (qWords < QUESTION_MIN_WORDS) errors.push(`${at}: too short (${qWords} words)`);
+      if (qWords > QUESTION_MAX_WORDS) errors.push(`${at}: too long (${qWords} > ${QUESTION_MAX_WORDS} words)`);
+      const qMarks = (qt.match(/\?/g) || []).length;
+      if (qMarks !== 1 || !qt.endsWith('?')) errors.push(`${at}: must be ONE interrogative ending in a single "?"`);
+      if (/[.!]/.test(qt)) errors.push(`${at}: must be a single sentence (no . or !)`);
+      if (!SECOND_PERSON_RE.test(qt)) errors.push(`${at}: must be second-person (use "you"/"your")`);
+    });
+    if (c.questions.length === 2 && typeof c.questions[0] === 'string'
+        && c.questions[0].trim() === (c.questions[1] || '').trim()) {
+      errors.push(`${where}: the two questions are identical`);
     }
-    // verb: lowercase kebab tag, <= 4 hyphen-separated parts.
+  }
+
+  // ----- verb (optional, standalone clustering tag) -----
+  if (c.verb !== undefined) {
     if (typeof c.verb !== 'string' || !VERB_RE.test(c.verb)) {
       errors.push(`${where}: verb "${c.verb}" must be a lowercase kebab tag`);
     } else if (c.verb.split('-').length > 4) {
       errors.push(`${where}: verb "${c.verb}" is too long (max 4 words)`);
     }
-    // question: a single second-person interrogative.
-    if (typeof c.question !== 'string') {
-      errors.push(`${where}: question must be a string`);
-    } else {
-      const q = c.question.trim();
-      const qWords = q.split(/\s+/).length;
-      if (qWords < QUESTION_MIN_WORDS) errors.push(`${where}: question too short (${qWords} words)`);
-      if (qWords > QUESTION_MAX_WORDS) errors.push(`${where}: question too long (${qWords} > ${QUESTION_MAX_WORDS} words)`);
-      const qMarks = (q.match(/\?/g) || []).length;
-      if (qMarks !== 1 || !q.endsWith('?')) errors.push(`${where}: question must be ONE interrogative ending in a single "?"`);
-      if (/[.!]/.test(q)) errors.push(`${where}: question must be a single sentence (no . or !)`);
-      if (!SECOND_PERSON_RE.test(q)) errors.push(`${where}: question must be second-person (use "you"/"your")`);
-    }
-    if (GRAMMAR_SET.has(c.grammar)) grammarsSeen.add(c.grammar);
-    provokedCount++;
   }
-}
-
-// Pool-level provocation variety (guards horoscope decay; PRD targets ~half of the pool).
-const MIN_PROVOKED = 8;
-if (provokedCount < MIN_PROVOKED) {
-  errors.push(`pool: only ${provokedCount} provoked cards (need >= ${MIN_PROVOKED})`);
-}
-for (const g of GRAMMARS) {
-  if (!grammarsSeen.has(g)) errors.push(`pool: grammar "${g}" is unused (all shapes must appear)`);
+  // `grammar`/`question` (singular) are retired — flag stragglers so cards stay clean.
+  if (c.grammar !== undefined) errors.push(`${where}: "grammar" is retired (remove it)`);
+  if (c.question !== undefined) errors.push(`${where}: singular "question" is retired — use the "questions" array`);
 }
 
 const ids = CARD_POOL.cards.map((c) => c.id);

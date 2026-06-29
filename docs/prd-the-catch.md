@@ -1,5 +1,12 @@
 # PRD — "The Catch": turning reveals from fun facts into provocations
 
+> **Superseded (2026-06):** "The Catch" shipped as ONE conditionally-shown question on a
+> subset of cards. It has since been generalized: **every** card now shows **two** always-on,
+> second-person application questions under a plain-language reveal (see `src/cards.js`). The
+> conditional gating (`FRONT_FREE`/`COLD_LIMIT`/`grammar`) is retired; the soft
+> "You keep catching X" verb-clustering mirror is retained (`src/provocation.js`). This doc is
+> kept as the original design record.
+
 Status: proposed · Owner: product · Surface: Collider PWA (deck loop)
 
 ## 1. Problem

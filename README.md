@@ -1,9 +1,10 @@
-# Collider — "Tinder for Ideas"
+# Collider — "Swipe for Ideas"
 
 A mobile-first PWA: a **daily swipe deck of surprising brand & industry
 collisions**. Each card collides two things you already know — *IKEA × gyms*,
 *Starbucks × banks*, *Costco × SaaS pricing* — you guess the link, then tap to
-reveal a one-line twist that names the hidden mechanism they secretly share.
+reveal a plain-language twist that names the hidden mechanism they share, plus
+**two questions** that turn the idea back on your own life and work.
 ✕ skip · ♥ save. Eight cards a day, in the time it takes to lose at Wordle.
 
 **Live:** https://jere-h.github.io/idea-collider/
@@ -28,7 +29,7 @@ src/streak.js                     pure streak + per-run freeze
 src/domains.js                    the 20 canonical industry categories + industries-bridged
 src/storage.js                    versioned localStorage (state + separate outbox key)
 src/telemetry.js                  anonymous at-least-once beacon (eventId, outbox)
-src/cards.js                      the curated brand/industry collision seed pool
+src/cards.js                      the curated brand/industry collision pool (reveal + 2 questions per card)
 src/config.js                     deploy-time config (telemetry endpoint, version)
 sw.js · manifest.webmanifest · icon.svg   PWA install + offline
 .nojekyll                         tells GitHub Pages to serve src/ modules & the SW as-is
