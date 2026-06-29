@@ -92,6 +92,8 @@ button { font: inherit; cursor: pointer; border: none; }
   color: var(--accent-2); position: relative; padding-left: 22px; text-align: left; }
 .spark-question::before { content: '↳'; position: absolute; left: 4px; top: 0;
   color: var(--accent); font-weight: 700; }
+.pool-note { text-align: center; color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+.pool-note b { color: var(--text); font-weight: 700; }
 .catch-mirror { margin: 0 0 18px; padding: 12px 14px; background: var(--surface);
   border: 1px solid var(--line); border-radius: 12px; color: var(--muted); }
 .catch-mirror b { color: var(--accent-2); }
