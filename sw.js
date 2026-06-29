@@ -1,6 +1,6 @@
 // Service worker — offline-first precache of the app shell (TRD §serviceWorker).
 // Cache name carries the app version; bump to invalidate.
-const CACHE = 'collider-v0.3.0';
+const CACHE = 'collider-v0.4.0';
 const ASSETS = [
   './',
   './index.html',
