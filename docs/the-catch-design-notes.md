@@ -1,5 +1,8 @@
 # Design notes — how "The Catch" was arrived at
 
+> **Superseded (2026-06):** "The Catch" was later generalized into two always-shown
+> application questions on every card. Kept as the original design record.
+
 Background record for `docs/prd-the-catch.md`. The design came out of a 3-round
 adversarial review between a Product Manager and a System Designer persona, then five
 user-testing personas. Captured here so the *rejected* branches don't get re-proposed.

@@ -59,6 +59,8 @@ try {
   await page.click('#btn-reveal');
   await page.waitForSelector('.reveal-line');
   assert((await page.locator('.reveal-line').innerText()).length > 10, 'reveal line has content');
+  const qCount = await page.locator('.spark-question').count();
+  assert(qCount === 2, `every card shows two application questions (got ${qCount})`);
   assert(await page.isVisible('.cat'), 'industry tags show after reveal');
 
   // Add an optional take and SAVE (♥).
