@@ -37,6 +37,7 @@ const revealedIds = new Set(); // transient: which top card has been revealed
 let suppressNextCardClick = false; // guard so a drag doesn't also trigger reveal
 
 const cardById = new Map(CARD_POOL.cards.map((c) => [c.id, c]));
+const POOL_SIZE = CARD_POOL.cards.length; // total collisions in the deck (shown in-app)
 
 // ---------- helpers ----------
 function localDay(d = new Date()) {
@@ -176,7 +177,7 @@ function renderDeck() {
         ${saved > 0
           ? '<button class="ghost" data-tab="saved">See what you saved →</button>'
           : '<p class="muted">Nothing saved today — tap ♥ on one that makes you grin.</p>'}
-        <p class="muted small">Come back tomorrow for ${DECK_SIZE} fresh collisions.</p>
+        <p class="muted small">Come back tomorrow for ${DECK_SIZE} fresh collisions — ${POOL_SIZE} in the deck.</p>
       </div>`;
   } else {
     const revealed = revealedIds.has(top.entry.id);
@@ -385,6 +386,7 @@ function renderYou() {
       <div class="stat"><div class="num">${bridged}<span class="of">/${DOMAIN_COUNT}</span></div><div class="lbl">industries bridged</div></div>
       <div class="stat"><div class="num">🔥 ${streak}</div><div class="lbl">day streak</div></div>
     </div>
+    <p class="pool-note">You've seen <b>${Math.min((state.dealtEver || []).length, POOL_SIZE)}</b> of ${POOL_SIZE} collisions in the deck.</p>
     ${caughtVerb ? `<p class="catch-mirror">You keep catching <b>${esc(caughtVerb)}</b>.</p>` : ''}
     <div class="range">
       <h3>Industries you've bridged</h3>
