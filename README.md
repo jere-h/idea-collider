@@ -60,14 +60,29 @@ node tests/e2e.smoke.mjs   # Playwright e2e in headless Chromium (needs playwrig
 
 ## Hosting (GitHub Pages)
 
-Hosted on **GitHub Pages from the repo root** on `main`. Because the app is
-static with a `.nojekyll` marker, it serves as-is — no Jekyll processing, so the
-`src/` ES modules and `sw.js` service worker are served untouched.
+Hosted on **GitHub Pages from the repo root**. Because the app is static with a
+`.nojekyll` marker, it serves as-is — no Jekyll processing, so the `src/` ES
+modules and `sw.js` service worker are served untouched. The Pages **source** is
+"GitHub Actions" and no build runs — the files are deployed verbatim by
+[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
 
-Deployment is automated by [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml):
-every push to `main` uploads the repo root as a Pages artifact and publishes it.
-The Pages **source** is "GitHub Actions". No build runs — the files are deployed
-verbatim.
+> **Which branch actually publishes.** The `github-pages` environment is currently
+> restricted to the **`claude/collider-github-pages-gja0mp`** branch, so that is the
+> branch the live site is built from. The workflow's `on: push` trigger lists `main`,
+> but a deploy started from `main` is **rejected by the environment** (the `deploy`
+> job fails in ~1s with no steps), so it never publishes. Until the environment is
+> changed, ship by getting your changes onto `claude/collider-github-pages-gja0mp`
+> and running the workflow on it (Actions → *Deploy to GitHub Pages* → **Run
+> workflow** on that branch, i.e. `workflow_dispatch`).
+>
+> **To make `main` the real source** (recommended), open **Settings → Environments →
+> `github-pages` → Deployment branches** and allow `main` (or the default branch).
+> Then the `push` trigger below will publish on its own and this note can go away.
+
+**Releasing a change:** bump `CACHE` in [`sw.js`](sw.js) (and `APP_VERSION` in
+[`src/config.js`](src/config.js)) whenever you touch `index.html`, `styles.css`, or
+`src/*`. The service worker is offline-first and only refreshes its precache when the
+cache name changes — skip the bump and returning visitors keep the old shell.
 
 ## Telemetry (optional, OFF by default)
 
