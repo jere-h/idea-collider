@@ -1,5 +1,10 @@
 # TRD — "The Catch"
 
+> **Superseded (2026-06):** the conditional single-question design below was generalized to
+> two always-shown application questions on every card. `shouldProvoke`/`hasProvocation` and
+> the `grammar` field are gone; `src/provocation.js` now only carries the `clusterVerb` mirror.
+> Kept as the original design record.
+
 Status: proposed · Implements: `docs/prd-the-catch.md`
 
 Constraints carried from the project: **vanilla ES modules, no build step, no framework,

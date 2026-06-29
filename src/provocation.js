@@ -1,38 +1,12 @@
-// Pure provocation logic — "The Catch" (TRD §3).
-// On a subset of back-of-deck cards the reveal resolves into one hand-authored,
-// second-person open QUESTION instead of ending on the closed mechanism. The bridge
-// is meant to form in the user's head in the half-second before they swipe — we
-// provoke it, we don't collect it. Nothing here touches the DOM or storage, so it
-// unit-tests like deckEngine.js / streak.js.
+// Pure "verb-clustering" logic — the soft "You keep catching X" mirror (PRD §6).
+// Every card now reveals a plain mechanism plus two always-shown application questions
+// (authored in cards.js); this module no longer gates when a single question appears.
+// What survives here is the SOFT, display-only signal: a subset of cards carry a `verb`
+// (a short kebab mechanism tag), and when the user keeps saving cards that share a verb we
+// surface "You keep catching <verb>" on the You tab. Nothing here touches the DOM or
+// storage, so it unit-tests like deckEngine.js / streak.js.
 
-// The only allowed question shapes. `accusation` was cut in user testing (read as
-// scolding; confusing for non-native speakers) and is banned by the content lint.
-export const GRAMMARS = ['point', 'inversion', 'dare'];
-
-export const FRONT_FREE = 2;   // the first 2 RESOLVED cards/day stay pure fun-facts (the bait)
-export const COLD_LIMIT = 3;   // after this many provocations shown-then-swiped cold, back off for the session
-export const CLUSTER_MIN = 3;  // catches sharing a verb before the soft "You keep catching X" mirror shows
-
-// Does this card carry a provocation at all?
-export function hasProvocation(card) {
-  return !!(card && typeof card.question === 'string' && card.question.trim());
-}
-
-/**
- * Decide whether to surface the provocation for the current top card.
- *   card       — the top card (may or may not have a question)
- *   done       — cards already RESOLVED today (deckProgress().done). The on-screen card
- *                is still pending and NOT counted, so done>=FRONT_FREE first holds on the
- *                3rd card the user reaches — i.e. cards 1 and 2 are always pure reveal.
- *   coldStreak — consecutive provocations shown-then-swiped WITHOUT a catch, this session.
- * Returns false (pure reveal) for a non-provocation card, the front of the deck, or once
- * the user has shown they aren't biting.
- */
-export function shouldProvoke({ card, done, coldStreak }) {
-  return hasProvocation(card)
-    && (done || 0) >= FRONT_FREE
-    && (coldStreak || 0) < COLD_LIMIT;
-}
+export const CLUSTER_MIN = 3;  // saved cards sharing a verb before the soft mirror shows
 
 /**
  * Dominant verb across saved sparks, or null when nothing has clustered yet.

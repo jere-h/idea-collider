@@ -2,7 +2,7 @@
   "name": "collider",
   "version": "0.1.0",
   "private": true,
-  "description": "Collider — a daily, swipeable creative-thinking workout (Tinder for Ideas). Mobile-first PWA, no build step.",
+  "description": "Collider — a daily, swipeable creative-thinking workout (Swipe for Ideas). Mobile-first PWA, no build step.",
   "type": "module",
   "scripts": {
     "test": "node tests/logic.test.mjs",

@@ -85,10 +85,13 @@ button { font: inherit; cursor: pointer; border: none; }
 .take-input { width: 100%; background: var(--surface); color: var(--text);
   border: 1px solid var(--line); border-radius: 12px; padding: 12px; font: inherit; }
 
-/* ---------- The Catch: provocation question + soft mirror ---------- */
-.catch-question { font-size: 17px; line-height: 1.4; font-weight: 700;
-  color: var(--accent-2); margin: 0 0 16px; padding-top: 14px;
-  border-top: 1px solid var(--line); }
+/* ---------- application questions + soft mirror ---------- */
+.spark-questions { list-style: none; margin: 0 0 16px; padding: 14px 0 0;
+  border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.spark-question { font-size: 15px; line-height: 1.4; font-weight: 600;
+  color: var(--accent-2); position: relative; padding-left: 22px; text-align: left; }
+.spark-question::before { content: '↳'; position: absolute; left: 4px; top: 0;
+  color: var(--accent); font-weight: 700; }
 .catch-mirror { margin: 0 0 18px; padding: 12px 14px; background: var(--surface);
   border: 1px solid var(--line); border-radius: 12px; color: var(--muted); }
 .catch-mirror b { color: var(--accent-2); }
